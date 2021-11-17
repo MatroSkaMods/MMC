@@ -1,5 +1,5 @@
 # MMC
-MatroSka Mod Compiler for .ts4script files
+MatroSka Mod Compiler for .ts4script files  
 ![MMC Logo](/mmc_icon_small.png)
 
 ## Requirements
