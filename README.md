@@ -1,6 +1,6 @@
 # MMC
 MatroSka Mod Compiler for .ts4script files
-
+![MMC Logo](/mmc_icon_small.png)
 
 ## Requirements
 * Have Python 3.7 installed and set as default.
