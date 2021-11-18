@@ -1,0 +1,15 @@
+
+dist/MMC.exe
+build/mmc/xref-mmc.html
+build/mmc/warn-mmc.txt
+__pycache__/mmc.cpython-37.pyc
+build/mmc/Analysis-00.toc
+build/mmc/base_library.zip
+build/mmc/EXE-00.toc
+build/mmc/mmc.exe.manifest
+build/mmc/mmc.pkg
+build/mmc/PKG-00.toc
+build/mmc/PYZ-00.pyz
+build/mmc/PYZ-00.toc
+mmc.spec
+MMC/MMC.exe
