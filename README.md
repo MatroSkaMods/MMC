@@ -20,5 +20,5 @@ mmc.exe
 ## Please Note
 * The script file is pretty dirty and still needs A LOT of cleanup work.
 
-* I am aware that the binary has false flags from multiple AntiVirusses.  
-(This is a pyarmor/pyinstaller thing, and I can't change that unfortunately)*
+*I am aware that the binary has false flags from multiple AntiVirusses.  
+(This is a pyinstaller thing, and I can't change that unfortunately)*
