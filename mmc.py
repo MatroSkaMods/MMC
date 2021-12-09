@@ -302,8 +302,9 @@ while 1:
         #activator = '"./mods/{}/Scripts/activate_this.py"'.format(mod_name)
         line()
         print(Fore.LIGHTRED_EX+Settings.spacer+"Virtualenv active on '{}'.".format(mod_name))
+        #print(Fore.LIGHTRED_EX+Settings.spacer+"PATH: {}".format(activator_path))
         print(Fore.LIGHTRED_EX+Settings.spacer+"Type 'exit' to return to MMC. Use pip to install modules.")
-        os.system("cmd /k '{}'".format(activator_path))
+        os.system('cmd /k "{}"'.format(activator_path))
 
     else:
         try:
