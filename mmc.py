@@ -6,16 +6,18 @@ from colorama import init, Fore, Back, Style
 import os, shutil, glob
 init(autoreset=True)
 
+version = '0.2.1'
+
 logo = ('''
    _______ _______ _______  ______  _____  _______ _     _ _______  
    |  |  | |_____|    |    |_____/ |     | |______ |____/  |_____| Matroska Mod Compiler
-   |  |  | |     |    |    |    \_ |_____| ______| |    \_ |     | [Version 0.2]
+   |  |  | |     |    |    |    \_ |_____| ______| |    \_ |     | [Version {}]
    _______  _____  ______    _______  _____  _______  _____  _____        _______  ______
    |  |  | |     | |     \   |       |     | |  |  | |_____]   |   |      |______ |_____/
    |  |  | |_____| |_____/   |_____  |_____| |  |  | |       __|__ |_____ |______ |    \_
-''')
+'''.format(version))
 
-os.system('title MMC [Version 0.2]')
+os.system('title MMC [Version {}]'.format(version))
 
 def cls():
     os.system('cls')
@@ -247,7 +249,7 @@ print("   ║ Installation:                           ║  * Cleaned up the code
 print("   ║ -------------                           ║  * Added debug compile mode.             ║▓")
 print("   ║ 1. Make sure you have python 3.7        ║  * Added Ease-Of-Access virtualenv-      ║▓")
 print("   ║    installed and set as default.        ║    activator.                            ║▓")
-print("   ║                                         ║                                          ║▓")
+print("   ║                                         ║  * Fixed an error calling virtualenv.    ║▓")
 print("   ║ 2. Make sure that you have installed    ║                                          ║▓")
 print("   ║    virtualenv via                       ║                                          ║▓")
 print("   ║    pip install --user virtualenv        ║                                          ║▓")
@@ -301,7 +303,7 @@ while 1:
         line()
         print(Fore.LIGHTRED_EX+Settings.spacer+"Virtualenv active on '{}'.".format(mod_name))
         print(Fore.LIGHTRED_EX+Settings.spacer+"Type 'exit' to return to MMC. Use pip to install modules.")
-        os.system("cmd /k {}".format(activator_path))
+        os.system("cmd /k '{}'".format(activator_path))
 
     else:
         try:

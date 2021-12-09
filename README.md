@@ -17,6 +17,11 @@ pip install virtualenv
 mmc.exe
 ```
 
+### Building from Source
+```
+pyinstaller --onefile --icon=mmc_icon.ico mmc.py
+```
+
 ## Please Note
 * The script file is pretty dirty and still needs A LOT of cleanup work.
 
