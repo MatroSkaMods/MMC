@@ -1,5 +1,5 @@
 # MMC
-## Current Version: 0.2
+## Current Version: 0.2.1
 MatroSka Mod Compiler for .ts4script files  
 ![MMC Logo](/mmc_icon_small.png)
 
