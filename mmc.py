@@ -1,20 +1,23 @@
 
 from typing import Set
 from zipfile import ZipFile
-from subprocess import Popen
 from colorama import init, Fore, Back, Style
 import os, shutil, glob
+from tabulate import tabulate
+
 init(autoreset=True)
 
-version = '0.2.1'
+version = '0.3.0'
 
-logo = ('''
-   _______ _______ _______  ______  _____  _______ _     _ _______  
-   |  |  | |_____|    |    |_____/ |     | |______ |____/  |_____| Matroska Mod Compiler
-   |  |  | |     |    |    |    \_ |_____| ______| |    \_ |     | [Version {}]
-   _______  _____  ______    _______  _____  _______  _____  _____        _______  ______
-   |  |  | |     | |     \   |       |     | |  |  | |_____]   |   |      |______ |_____/
-   |  |  | |_____| |_____/   |_____  |_____| |  |  | |       __|__ |_____ |______ |    \_
+logo = ('''                                                                   
+    _____ _____ _____ _____ _____ _____ _____ _____
+   |     |  _  |_   _| __  |     |   __|  |  |  _  | Matroska Mod Compiler
+   | | | |     | | | |    -|  |  |__   |    -|     | [Version {}]         
+   |_|_|_|__|__| |_| |__|__|_____|_____|__|__|__|__|                      
+    _____ _____ ____      _____ _____ _____ _____ _____ __    _____ _____  
+   |     |     |    \    |     |     |     |  _  |     |  |  |   __| __  |
+   | | | |  |  |  |  |   |   --|  |  | | | |   __|-   -|  |__|   __|    -|
+   |_|_|_|_____|____/    |_____|_____|_|_|_|__|  |_____|_____|_____|__|__|
 '''.format(version))
 
 os.system('title MMC [Version {}]'.format(version))
@@ -23,7 +26,11 @@ def cls():
     os.system('cls')
 
 def line():
-    print("  ","═"*86)
+    print("  ","═"*75)
+
+important_files = ['.pem']
+
+dead_critical_files = ['.pyd']
 
 class Settings():
     """General hard-coded settings"""
@@ -47,7 +54,7 @@ class Settings():
 
     sims4_patches = {
         'import enum': 'import enum_lib as enum',
-        'from enum import': 'from enum_lib import'
+        'from enum import': 'from enum_lib import',
     }
 
 templates = {
@@ -65,7 +72,33 @@ def sayhello(_connection=None):
 def UpdateFileLists(mod_name):
     """Update the lists of files recursively."""
     recusive_files = {}
-    
+    important = []
+    dead = []
+
+    for y in important_files:
+        important.append(
+            [os.path.join(dp, f) for dp, 
+            dn, 
+            filenames in os.walk("./mods/{}".format(mod_name)) for f in filenames if os.path.splitext(f)[1] == y]
+    )
+    old_important = important
+    important = []
+    for imp in old_important:
+        for impx in imp:
+            important.append(impx)
+
+    for y in dead_critical_files:
+        dead.append(
+            [os.path.join(dp, f) for dp, 
+            dn, 
+            filenames in os.walk("./mods/{}".format(mod_name)) for f in filenames if os.path.splitext(f)[1] == y]
+    )
+    old_dead = dead
+    dead = []
+    for ded in old_dead:
+        for dedx in ded:
+            dead.append(dedx)
+
     pycfiles = [os.path.join(dp, f) for dp, 
         dn, 
         filenames in os.walk("./mods/{}".format(mod_name)) for f in filenames if os.path.splitext(f)[1] == '.pyc']
@@ -81,8 +114,25 @@ def UpdateFileLists(mod_name):
     recusive_files['py'] = pyfiles
     recusive_files['pyc'] = pycfiles
     recusive_files['ts4'] = tsfiles
+    recusive_files['important'] = important
+    recusive_files['deadfiles'] = dead
     
     return recusive_files
+
+def nuke(mod_name):
+    """Re-install virtualenv"""
+    print( Settings.spacer + "> Nuking {}...".format(mod_name))
+    dirtypaths = [
+        './mods/{}/__pycache__'.format(mod_name), 
+        './mods/{}/Lib'.format(mod_name),
+        './mods/{}/Scripts'.format(mod_name),
+    ]
+    for x in dirtypaths:
+        try: shutil.rmtree(x)
+        except: pass
+    print( Settings.spacer + "> Creating Virtualenv for {}...".format(mod_name))
+    os.system("virtualenv ./mods/{} >> nul".format(mod_name))
+    
 
 def clean(mod_name):
     """Clean all the compiled files."""
@@ -94,11 +144,12 @@ def clean(mod_name):
         #    os.remove(x)
     except Exception as e:
         print(e)
-
+    
 def Compile_Mod(mod_name, debug):
     """Compile a mod."""
     mod_name = mod_name.split("\\")[-1].replace(".modname","")
-    
+    errored_files = []
+
     print(Settings.spacer+"* Cleaning '{}'".format(mod_name))
     clean(mod_name)
 
@@ -124,22 +175,51 @@ def Compile_Mod(mod_name, debug):
             try:
                 with open(xz, 'r') as pyfile:
                     filecontents = pyfile.read()
+                    fileAsLines = filecontents.split("\n")
+
                     for patch in Settings.sims4_patches.keys():
                         if patch in filecontents:
-                            print(Fore.BLUE+ Settings.spacer + "--> Patching: {}".format(xz.replace("\\","/")))
-                            filecontents = filecontents.replace(patch,Settings.sims4_patches[patch])
-                            oldpyfiles.append(xz)
-                with open(xz, 'w') as pyfile:
-                    pyfile.write(filecontents)
+                            patchThisFile = True
+                            break
+                        else:
+                            patchThisFile = False
+
+                    if patchThisFile:
+                        line_number = 0
+                        newfile = ""
+                        
+                        for fileline in fileAsLines:
+                            line_number += 1
+                            lineIsPatched = False
+                            if Settings.debug:
+                                print(Settings.spacer+"{}. {}".format(line_number, fileline))
+                            for patch in Settings.sims4_patches.keys():
+                                if fileline == patch:
+                                    lineIsPatched = True
+                                    if Settings.debug:
+                                        print(Fore.BLUE+ Settings.spacer + "{}. {} --> {}".format(line_number, fileline, Settings.sims4_patches[patch]))
+                                    else:
+                                        print(Fore.BLUE+ Settings.spacer + "--> Patching: {}, Line: {}".format(xz.replace("\\","/"), line_number))
+                                    newfile += Settings.sims4_patches[patch] + "\n"
+                                    #filecontents = filecontents.replace(patch,Settings.sims4_patches[patch])
+                                    oldpyfiles.append(xz)
+                            
+                            if lineIsPatched == False:
+                                newfile += fileline + "\n"
+                
+                        with open(xz, 'w') as pyfile:
+                            pyfile.write(newfile)
+
             except Exception as e:
-                print(Fore.YELLOW+ Settings.spacer + "Patching Error: {}".format(e))
+                print(Fore.YELLOW+ Settings.spacer + "--> {}".format(xz.split("\\",1)[-1]))
+                errored_files.append(xz)
                 
             #! Compiler
             try:
                 os.system("python.exe -m py_compile {}".format(xz))
-                print(Fore.LIGHTBLUE_EX+ Settings.spacer + "--> Compiled: {}".format(xz.replace("\\","/")))
+                print(Fore.LIGHTBLUE_EX+ Settings.spacer + "--> {}".format(xz.split("\\",1)[-1]))
             except:
-                print(Fore.LIGHTRED_EX+ Settings.spacer + "--> Error compiling: {}".format(xz))
+                print(Fore.LIGHTRED_EX+ Settings.spacer + "--> Error: {}".format(xz.split("\\",1)[-1]))
 
     pycfiles = UpdateFileLists(mod_name)['pyc']
     pyfiles = UpdateFileLists(mod_name)['py']
@@ -149,49 +229,63 @@ def Compile_Mod(mod_name, debug):
         shutil.move(src="{}".format(xz), dst="{}".format(backonefolder))
     
     pycfiles = UpdateFileLists(mod_name)['pyc']
-
     compiled_mod_name = "./mods/{}/{}.ts4script".format(mod_name,mod_name)
     filestocompile = glob.glob("./mods/{}/*.*".format(mod_name))
+    importantfiles = UpdateFileLists(mod_name)['important']
     
     #print(Fore.GREEN + Settings.spacer + "* {} | {}".format(compiled_mod_name,filestocompile))
     print(Fore.GREEN + Settings.spacer + "* Building Mod Archive...")
-
-    with ZipFile(compiled_mod_name, 'w') as zip:
-        for y in pycfiles:
-            for ign in Settings.ignorelist:
-                if ign in y:
-                    ignore = True
-                    break
-                else:
-                    ignore = False
-            if ignore == False:
-                targ_buffer = y.split("\\",3)
-                targ_buffer = targ_buffer[-1]
-                name_in_archive = y.split("\\")[-1]
-                zip.write(
-                    y, arcname=targ_buffer
-                )
-                os.remove(y)
+    with ZipFile(compiled_mod_name, 'w') as zip:   
         
-        if Settings.debug:
-            for z in pyfiles:
+        if importantfiles != []:
+            print(Fore.GREEN + Settings.spacer + "-- Packing {} important files.".format(len(importantfiles)))
+            for imp in importantfiles:
+                targ_buffer = imp.split("\\",3)
+                targ_buffer = targ_buffer[-1]
+                name_in_archive = imp.split("\\")[-1]
+                zip.write(
+                    imp, arcname=targ_buffer
+                )
+
+        try:
+            print(Fore.GREEN + Settings.spacer + "-- Packing {} pyc files.".format(len(pycfiles)))
+            for y in pycfiles:
                 for ign in Settings.ignorelist:
-                    if ign in z:
+                    if ign in y:
                         ignore = True
                         break
                     else:
                         ignore = False
                 if ignore == False:
-                    targ_buffer = z.split("\\",3)
+                    targ_buffer = y.split("\\",3)
                     targ_buffer = targ_buffer[-1]
-                    name_in_archive = z.split("\\")[-1]
+                    name_in_archive = y.split("\\")[-1]
                     zip.write(
-                        z, arcname=targ_buffer
+                        y, arcname=targ_buffer
                     )
-        
+                    os.remove(y)
+
+
+            if Settings.debug:
+                print(Fore.GREEN + Settings.spacer + "-- Packing {} py files.".format(len(pyfiles)))
+                for z in pyfiles:
+                    for ign in Settings.ignorelist:
+                        if ign in z:
+                            ignore = True
+                            break
+                        else:
+                            ignore = False
+                    if ignore == False:
+                        targ_buffer = z.split("\\",3)
+                        targ_buffer = targ_buffer[-1]
+                        name_in_archive = z.split("\\")[-1]
+                        zip.write(
+                            z, arcname=targ_buffer
+                        )
+        except Exception as e:
+            print(Fore.RED+ Settings.spacer + "{}".format(e))
     
     print(Fore.GREEN+ Settings.spacer + "* Rolling back patches...")
-    
     for xz in oldpyfiles:        
         try:
             with open(xz, 'r') as pyfile:
@@ -213,8 +307,26 @@ def Compile_Mod(mod_name, debug):
     except Exception as e:
         print(e)
         pass
+    
+    line()
+    
+    deadfiles = UpdateFileLists(mod_name)['deadfiles']
+    if len(deadfiles)>=1:
+        print(Fore.RED+ Settings.spacer + "WARNING: Your mod contains imports that Sims 4 can't interpret.")
+        print(Fore.RED+ Settings.spacer + "As a result, your mod might not function properly.")
+        print(Fore.RED+ Settings.spacer + "Number of dead imports: {}".format(len(deadfiles)))
+        print(Fore.RED+ Settings.spacer + "(Dead imports are files like .pyd files.)")
+        line()
 
-    print(Fore.GREEN+"\n{}Compiled!".format( Settings.spacer ))
+    totalfiles = len(deadfiles) + len(pyfiles) + len(pycfiles) + len(importantfiles) + len(errored_files)
+    dead_imports = totalfiles - (len(deadfiles)*8) - (len(errored_files))
+    probability = (dead_imports / totalfiles) * 100
+    
+    #print(Fore.GREEN+Settings.spacer+"Total Files: {} ".format(totalfiles))
+    #print(Fore.GREEN+Settings.spacer+"Dead Files: {} ".format(dead_imports))
+    print(Fore.GREEN+Settings.spacer+"Compiled "+mod_name)
+    print(Fore.LIGHTCYAN_EX+Settings.spacer+"{} has a {}% chance of working without any issues.".format(mod_name,round(probability,2)))
+    line()
     print( Settings.spacer + "Press Enter to Continue.")
     clean(mod_name)
     os.system('pause >> nul')
@@ -245,16 +357,16 @@ print(logo)
 print("   ╔═════════════════════════════════════════╦══════════════════════════════════════════╗")
 print("   ║    Welcome to MatroSka Mod Compiler!    ║  Changelog:                              ║▓")
 print("   ╠═════════════════════════════════════════╣  ----------                              ║▓")
-print("   ║ Installation:                           ║  * Cleaned up the code a little.         ║▓")
-print("   ║ -------------                           ║  * Added debug compile mode.             ║▓")
-print("   ║ 1. Make sure you have python 3.7        ║  * Added Ease-Of-Access virtualenv-      ║▓")
-print("   ║    installed and set as default.        ║    activator.                            ║▓")
-print("   ║                                         ║  * Fixed an error calling virtualenv.    ║▓")
+print("   ║ Installation:                           ║  * Changed the patching method.          ║▓")
+print("   ║ -------------                           ║  * Added Nuke Function.                  ║▓")
+print("   ║ 1. Make sure you have python 3.7        ║  * Some more bug fixes.                  ║▓")
+print("   ║    installed and set as default.        ║  * Added some new warnings.              ║▓")
+print("   ║                                         ║                                          ║▓")
 print("   ║ 2. Make sure that you have installed    ║                                          ║▓")
 print("   ║    virtualenv via                       ║                                          ║▓")
-print("   ║    pip install --user virtualenv        ║                                          ║▓")
-print("   ║                                         ║                                          ║▓")
-print("   ║ 3. Create a new mod by entering the     ║                                          ║▓")
+print("   ║    pip install --user virtualenv        ║  WARNING: The patcher might be slightly  ║▓")
+print("   ║                                         ║  more destructive, but it's a lot more   ║▓")
+print("   ║ 3. Create a new mod by entering the     ║  accurate.                               ║▓")
 print("   ║    number corresponding to              ║                                          ║▓")
 print("   ║    'Create new Mod'.                    ║                                          ║▓")
 print("   ╚═════════════════════════════════════════╩══════════════════════════════════════════╝▓")
@@ -272,17 +384,26 @@ while 1:
 
     counter = 1
     modcounter = []
+    mods = []
+    commands = []
     for x in sims4mods:
-        print(Fore.LIGHTBLUE_EX + Settings.spacer + "{}. Compile: '{}'".format(counter,x.split('\\')[-1].replace(".modname","")))
+        mods.append(Fore.LIGHTBLUE_EX + "{}. Compile: {} ".format(counter,x.split('\\')[-1].replace(".modname","")+Fore.WHITE))
         modcounter.append(x.split('\\')[-1].replace(".modname",""))
         counter += 1
     
-    line()
-    print(Fore.LIGHTRED_EX + Settings.spacer + "{}. {}".format("C","(C)reate New Mod."))
-    print(Fore.LIGHTRED_EX + Settings.spacer + "{}. {}".format("D","Enable/Disable (D)ebug Build Mode (Includes Py Files in mod)."))
-    print(Fore.LIGHTRED_EX + Settings.spacer + "{}. {}".format("M","Use Virtualenv to Install Python (M)odules for a mod."))
-    line()
+    commands.append(Fore.LIGHTRED_EX + "{}. {}".format("C","(C)reate New Mod."))
+    commands.append(Fore.LIGHTRED_EX + "{}. {}".format("D","Enable/Disable (D)ebug Build Mode."))
+    commands.append(Fore.LIGHTRED_EX + "{}. {}".format("M","Install (M)odules with virtualenv."))
+    commands.append(Fore.LIGHTRED_EX + "{}. {}".format("N","Re-install virtualenv for a mod."))
+    
+    uitable = (tabulate({"Mods": mods,
+        "Commands": commands},
+        headers=['Mods (Enter number to compile)',
+        'Commands'], tablefmt="presto"))
 
+    for x in uitable.split("\n"):
+        print(Settings.spacer + x)
+    line()
     number = input( Settings.spacer + "MMC>> ")
 
     if number.lower() == "c":
@@ -305,6 +426,14 @@ while 1:
         #print(Fore.LIGHTRED_EX+Settings.spacer+"PATH: {}".format(activator_path))
         print(Fore.LIGHTRED_EX+Settings.spacer+"Type 'exit' to return to MMC. Use pip to install modules.")
         os.system('cmd /k "{}"'.format(activator_path))
+
+    elif number.lower() == "n": 
+        print(Fore.RED + Settings.spacer + "WARNING. YOU ARE ABOUT TO RE-INSTALL VIRTUALENV")
+        number = input(Settings.spacer+"Mod Number: ")
+        mod_name = (sims4mods[int(number) - 1].split('\\')[-1].replace(".modname",""))
+        line()
+        nuke(mod_name)
+
 
     else:
         try:
